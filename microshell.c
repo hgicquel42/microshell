@@ -1,25 +1,14 @@
-/* ************************************************************************** */
-/*                                                                            */
-/*                                                        :::      ::::::::   */
-/*   microshell.c                                       :+:      :+:    :+:   */
-/*                                                    +:+ +:+         +:+     */
-/*   By: hgicquel <hgicquel@student.42.fr>          +#+  +:+       +#+        */
-/*                                                +#+#+#+#+#+   +#+           */
-/*   Created: 2022/01/26 13:09:34 by hgicquel          #+#    #+#             */
-/*   Updated: 2022/01/26 19:28:13 by hgicquel         ###   ########.fr       */
-/*                                                                            */
-/* ************************************************************************** */
-
 #include <stdlib.h>
 #include <stdio.h>
 #include <unistd.h>
 #include <stdbool.h>
 #include <string.h>
+#include <sys/types.h>
+#include <sys/wait.h>
 
 typedef struct s_cmd
 {
-	int		argc;
-	char	**argv;
+	char	**args;
 	int		pipe[2];
 	int		fdi;
 	int		fdo;
@@ -32,6 +21,7 @@ typedef struct s_state
 	char	**envp;
 	int		cmdc;
 	t_cmd	*cmdv;
+	int		sts;
 }	t_state;
 
 int	ft_strlen(char *s)
@@ -47,16 +37,21 @@ int	ft_strlen(char *s)
 int	ft_error(char *s)
 {
 	write(2, s, ft_strlen(s));
-	return (0);
+	return (1);
 }
 
-void	ft_copy(t_state *g, int i, int o, int r)
+void	ft_fatal(void)
 {
-	if (g->cmdv && g->cmdv[o].argv)
-		g->cmdv[o].argv[r] = g->argv[i];
+	exit(ft_error("error: fatal\n"));
 }
 
-int	ft_parse(t_state *g, int i, int o)
+void	ft_copy(t_cmd *cmd, int r, char *s)
+{
+	if (cmd)
+		cmd->args[r] = s;
+}
+
+int	ft_parse(t_cmd *cmd, t_state *g, int i)
 {
 	int	r;
 
@@ -66,11 +61,13 @@ int	ft_parse(t_state *g, int i, int o)
 		if (!strcmp(g->argv[i], ";") || !strcmp(g->argv[i], "|"))
 		{
 			if (!r)
-				ft_copy(g, i++, o, r++);
+				ft_copy(cmd, r++, g->argv[i++]);
 			break ;
 		}
-		ft_copy(g, i++, o, r++);
+		ft_copy(cmd, r++, g->argv[i++]);
 	}
+	if (cmd)
+		cmd->args[r] = NULL;
 	return (r);
 }
 
@@ -84,20 +81,19 @@ int	ft_split(t_state *g)
 	o = 0;
 	while (i < g->argc)
 	{
-		r = ft_parse(g, i, o);
+		r = ft_parse(NULL, g, i);
 		if (r && !g->cmdv)
 			o++;
 		if (r && g->cmdv)
 		{
-			g->cmdv[o].argc = r;
-			g->cmdv[o].argv = malloc(r * sizeof(char *));
+			g->cmdv[o].args = malloc((r + 1) * sizeof(char *));
+			if (!g->cmdv[o].args)
+				return (o);
 			g->cmdv[o].pipe[0] = 0;
 			g->cmdv[o].pipe[1] = 0;
 			g->cmdv[o].fdi = 0;
 			g->cmdv[o].fdo = 0;
-			if (!g->cmdv[o].argv)
-				return (o);
-			if (ft_parse(g, i, o) != r)
+			if (ft_parse(&g->cmdv[o], g, i) != r)
 				return (o);
 			o++;
 		}
@@ -106,53 +102,79 @@ int	ft_split(t_state *g)
 	return (o);
 }
 
-bool	ft_exec(t_state *g, int i)
+int	ft_exec(t_state *g, t_cmd *cmd)
 {
-	int	pid;
-	int	j;
+	int		pid;
+	int		sts;
 
-	if (g->cmdv[i].fdi)
-		printf("-> ");
-	j = 0;
-	while (j < g->cmdv[i].argc)
-	{
-		printf("'%s' ", g->cmdv[i].argv[j]);
-		j++;
-	}
-	if (g->cmdv[i].fdo)
-		printf("-> ");
-	printf("\n");
+	sts = 0;
 	pid = fork();
-	if (pid == -1)
-		return (-1);
-	
+	if (pid == 0)
+	{
+		if (cmd->fdi)
+			dup2(cmd->fdi, 0);
+		if (cmd->fdo)
+			dup2(cmd->fdo, 1);
+		execve(cmd->args[0], cmd->args, g->envp);
+	}
+	if (cmd->fdi)
+		close(cmd->fdi);
+	if (cmd->fdo)
+		close(cmd->fdo);
+	if (pid > 0)
+		waitpid(pid, &sts, 0);
+	if (WIFEXITED(sts))
+		g->sts = WEXITSTATUS(sts);
+	return (pid);
 }
 
 bool	ft_run(t_state *g)
 {
 	int	i;
+	int	r;
 
 	i = 0;
 	while (i < g->cmdc)
 	{
-		if (!strcmp(g->cmdv[i].argv[0], ";"))
-			i++;
-		else if (!strcmp(g->cmdv[i].argv[0], "|"))
-			i++;
+		if (!strcmp(g->cmdv[i].args[0], ";"))
+			;
+		else if (!strcmp(g->cmdv[i].args[0], "|"))
+			;
+		else if (!strcmp(g->cmdv[i].args[0], "cd"))
+		{
+			if (!g->cmdv[i].args[1])
+				g->sts = ft_error("error: cd: bad arguments\n");
+			if (chdir(g->cmdv[i].args[1]) == -1)
+			{
+				ft_error("error: cd: cannot change directory to ");
+				ft_error(g->cmdv[i].args[1]);
+				ft_error("\n");
+				exit(1);
+			}
+		}
 		else
 		{
-			if (i < g->cmdc - 1 && !strcmp(g->cmdv[i + 1].argv[0], "|"))
+			if (i < g->cmdc - 1 && !strcmp(g->cmdv[i + 1].args[0], "|"))
 			{
 				if (pipe(g->cmdv[i + 2].pipe) == -1)
-					return (false);
-				g->cmdv[i].fdo = g->cmdv[i + 2].pipe[0];
+					ft_fatal();
+				g->cmdv[i].fdo = g->cmdv[i + 2].pipe[1];
 				g->cmdv[i + 2].fdi = g->cmdv[i + 2].pipe[0];
 			}
-			if (!ft_exec(g, i))
-				return (false);
-			i++;
+			r = ft_exec(g, &g->cmdv[i]);
+			if (r == -1)
+				ft_fatal();
+			if (r == 0)
+			{
+				ft_error("error: cannot execute ");
+				ft_error(g->cmdv[i].args[0]);
+				ft_error("\n");
+				exit(1);
+			}
 		}
+		free(g->cmdv[i++].args);
 	}
+	free(g->cmdv);
 	return (true);
 }
 
@@ -167,10 +189,9 @@ int	main(int argc, char **argv, char **envp)
 	g.cmdc = ft_split(&g);
 	g.cmdv = malloc(g.cmdc * sizeof(t_cmd));
 	if (!g.cmdv)
-		return (1 + ft_error("error: fatal\n"));
+		ft_fatal();
 	if (ft_split(&g) != g.cmdc)
-		return (1 + ft_error("error: fatal\n"));
-	if (!ft_run(&g))
-		return (1 + ft_error("error: fatal\n"));
-	return (0);
+		ft_fatal();
+	ft_run(&g);
+	return (g.sts);
 }
