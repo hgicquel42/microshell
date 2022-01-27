@@ -188,6 +188,7 @@ int	main(int argc, char **argv, char **envp)
 	g.cmdv = NULL;
 	g.cmdc = ft_split(&g);
 	g.cmdv = malloc(g.cmdc * sizeof(t_cmd));
+	g.sts = 0;
 	if (!g.cmdv)
 		ft_fatal();
 	if (ft_split(&g) != g.cmdc)
