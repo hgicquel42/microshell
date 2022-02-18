@@ -1,4 +1,5 @@
 test () {
+	touch out out2 err err2
 	./microshell $@ > out 2> err
 	./glagan $@ > out2 2> err2
 	diff out out2
@@ -23,12 +24,12 @@ test /bin/ls "|" /usr/bin/grep microshell "|" /usr/bin/grep micro "|" /usr/bin/g
 test /bin/ls ewqew "|" /usr/bin/grep micro "|" /bin/cat -n ";" /bin/echo dernier ";" /bin/echo
 test /bin/ls "|" /usr/bin/grep micro "|" /bin/cat -n ";" /bin/echo dernier ";" /bin/echo ftest ";"
 test /bin/echo ftest ";" /bin/echo ftewerwerwerst ";" /bin/echo werwerwer ";" /bin/echo qweqweqweqew ";" /bin/echo qwewqeqrtregrfyukui ";"
-test /bin/ls ftest ";" /bin/ls ";" /bin/ls werwer ";" /bin/ls microshell.c ";" /bin/ls subject.fr.txt ";"
+test /bin/ls ftest ";" /bin/ls ";" /bin/ls werwer ";" /bin/ls microshell.c ";" /bin/ls glagan.c ";"
 test /bin/ls "|" /usr/bin/grep micro ";" /bin/ls "|" /usr/bin/grep micro ";" /bin/ls "|" /usr/bin/grep micro ";" /bin/ls "|" /usr/bin/grep micro ";"
-test /bin/cat subject.fr.txt "|" /usr/bin/grep a "|" /usr/bin/grep b ";" /bin/cat subject.fr.txt ";"
-test /bin/cat subject.fr.txt "|" /usr/bin/grep a "|" /usr/bin/grep w ";" /bin/cat subject.fr.txt ";"
-test /bin/cat subject.fr.txt "|" /usr/bin/grep a "|" /usr/bin/grep w ";" /bin/cat subject.fr.txt
-test /bin/cat subject.fr.txt ";" /bin/cat subject.fr.txt "|" /usr/bin/grep a "|" /usr/bin/grep b "|" /usr/bin/grep z ";" /bin/cat subject.fr.txt
-test ";" /bin/cat subject.fr.txt ";" /bin/cat subject.fr.txt "|" /usr/bin/grep a "|" /usr/bin/grep b "|" /usr/bin/grep z ";" /bin/cat subject.fr.txt
+test /bin/cat glagan.c "|" /usr/bin/grep a "|" /usr/bin/grep b ";" /bin/cat glagan.c ";"
+test /bin/cat glagan.c "|" /usr/bin/grep a "|" /usr/bin/grep w ";" /bin/cat glagan.c ";"
+test /bin/cat glagan.c "|" /usr/bin/grep a "|" /usr/bin/grep w ";" /bin/cat glagan.c
+test /bin/cat glagan.c ";" /bin/cat glagan.c "|" /usr/bin/grep a "|" /usr/bin/grep b "|" /usr/bin/grep z ";" /bin/cat glagan.c
+test ";" /bin/cat glagan.c ";" /bin/cat glagan.c "|" /usr/bin/grep a "|" /usr/bin/grep b "|" /usr/bin/grep z ";" /bin/cat glagan.c
 test blah "|" /bin/echo OK
 test blah "|" /bin/echo OK ";"
