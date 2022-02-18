@@ -40,7 +40,8 @@ int	ft_error(char *s)
 
 void	ft_fatal(void)
 {
-	exit(ft_error("error: fatal\n"));
+	ft_error("error; fatal\n");
+	exit(1);
 }
 
 void	ft_copy(t_cmd *cmd, int j, char *s)
@@ -49,21 +50,20 @@ void	ft_copy(t_cmd *cmd, int j, char *s)
 		cmd->args[j] = s;
 }
 
-int	ft_parse(t_cmd *cmd, t_global *g, int i)
+int	ft_parse(t_global *g, t_cmd *cmd, int i)
 {
 	int	j;
 
 	j = 0;
 	while (i < g->argc)
 	{
-		if (!strcmp(g->argv[i], ";") || !strcmp(g->argv[i], "|"))
+		if (!strcmp(g->argv[i], "|") || !strcmp(g->argv[i], ";"))
 		{
 			if (!j)
-				ft_copy(cmd, j++, g->argv[i]);
+				ft_copy(cmd, j++, g->argv[i++]);
 			break ;
 		}
-		ft_copy(cmd, j++, g->argv[i]);
-		i++;
+		ft_copy(cmd, j++, g->argv[i++]);
 	}
 	ft_copy(cmd, j, NULL);
 	return (j);
@@ -72,14 +72,14 @@ int	ft_parse(t_cmd *cmd, t_global *g, int i)
 int	ft_split(t_global *g, t_cmd *cmdv)
 {
 	int	i;
-	int	l;
 	int	j;
+	int	l;
 
 	i = 0;
 	l = 0;
 	while (i < g->argc)
 	{
-		j = ft_parse(NULL, g, i);
+		j = ft_parse(g, NULL, i);
 		if (j && !cmdv)
 			l++;
 		if (j && cmdv)
@@ -91,7 +91,7 @@ int	ft_split(t_global *g, t_cmd *cmdv)
 			cmdv[l].args = malloc((j + 1) * sizeof(char *));
 			if (!cmdv[l].args)
 				return (l);
-			if (ft_parse(&cmdv[l], g, i) != j)
+			if (ft_parse(g, &cmdv[l], i) != j)
 				return (l);
 			l++;
 		}
@@ -102,8 +102,8 @@ int	ft_split(t_global *g, t_cmd *cmdv)
 
 int	ft_exec(t_global *g, t_cmd *cmd)
 {
-	int	sts;
 	int	pid;
+	int	sts;
 
 	sts = 0;
 	pid = fork();
@@ -119,19 +119,16 @@ int	ft_exec(t_global *g, t_cmd *cmd)
 		close(cmd->fdi);
 	if (cmd->fdo)
 		close(cmd->fdo);
-	if (pid > 0)
-		waitpid(pid, &sts, 0);
-	if (WIFEXITED(sts))
-		g->sts = WEXITSTATUS(sts);
 	if (pid == -1)
 		ft_fatal();
 	if (pid == 0)
 	{
-		ft_error("error: cannot execute ");
-		ft_error(cmd->args[0]);
-		ft_error("\n");
+		ft_error("cannot execute\n");
 		exit(1);
 	}
+	waitpid(pid, &sts, 0);
+	if (WIFEXITED(sts))
+		g->sts = WEXITSTATUS(sts);
 	return (pid);
 }
 
@@ -149,12 +146,10 @@ void	ft_run(t_global *g)
 		else if (!strcmp(g->cmdv[i].args[0], "cd"))
 		{
 			if (!g->cmdv[i].args[1])
-				g->sts = ft_error("error: cd: bad arguments\n");
-			else if (chdir(g->cmdv[i].args[0]) == -1)
+				g->sts = ft_error("bad arguments\n");
+			else if (chdir(g->cmdv[i].args[1]) == -1)
 			{
-				ft_error("error: cd: cannot change directory to ");
-				ft_error(g->cmdv[i].args[1]);
-				ft_error("\n");
+				ft_error("cant change directory\n");
 				exit(1);
 			}
 		}
@@ -175,7 +170,7 @@ void	ft_run(t_global *g)
 
 int	main(int argc, char **argv, char **envp)
 {
-	t_global g;
+	t_global	g;
 
 	g.argc = argc - 1;
 	g.argv = argv + 1;
